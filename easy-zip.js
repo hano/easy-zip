@@ -31,7 +31,7 @@ EasyZip.prototype.addFile = function(file,filePath,callback){
 
 	rs.on('end',function(){
 		var buf = Buffer.concat(datas);
-		me.file(file, toArrayBuffer(buf),{base64:false, binary: true});
+		me.file(file, toArrayBuffer(buf),{base64:false, binary: true, compression: 'STORE'});
 		callback();
 	})
 }
