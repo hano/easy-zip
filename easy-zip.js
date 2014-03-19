@@ -73,9 +73,15 @@ EasyZip.prototype.zipFolder = function(folder, callback, options) {
 		options = options || {};
 		var me = this,
 			files = fs.readdirSync(folder),
-			rootFolder = options.rootFolder || path.basename(folder),
 			zips = [],
+            rootFolder = '',
 			file,stat,targetPath,sourcePath;
+
+        if( options.rootFolder !== null ) {
+            rootFolder = options.rootFolder
+        } else {
+            rootFolder = path.basename(folder);
+        }
 
 		while(files.length > 0){
 			file = files.shift();
