@@ -30,8 +30,10 @@ EasyZip.prototype.addFile = function(file,filePath,callback){
 	})
 
 	rs.on('end',function(){
-		var buf = Buffer.concat(datas);
-		me.file(file, toArrayBuffer(buf),{base64:false, binary: true, compression: 'STORE'});
+//		var buf = Buffer.concat(datas);
+//		me.file(file, toArrayBuffer(buf),{base64:false, binary: true, compression: 'STORE'});
+		var buf = datas.join('');
+        me.file(file, buf, {base64:false, binary: false, compression: 'STORE'});
 		callback();
 	})
 }
@@ -66,7 +68,7 @@ EasyZip.prototype.batchAdd = function(files,callback) {
 }
 
 
-EasyZip.prototype.zipFolder = function(folder, callback, options) {
+EasyZip.prototype.zipFolderOld = function(folder, callback, options) {
 	if(!fs.existsSync(folder)){
 		callback(new Error('Folder not found'),me);
 	}else{
@@ -77,7 +79,7 @@ EasyZip.prototype.zipFolder = function(folder, callback, options) {
             rootFolder = '',
 			file,stat,targetPath,sourcePath;
 
-        if( options.rootFolder !== null ) {
+        if( options.rootFolder ) {
             rootFolder = options.rootFolder
         } else {
             rootFolder = path.basename(folder);
@@ -87,6 +89,7 @@ EasyZip.prototype.zipFolder = function(folder, callback, options) {
 			file = files.shift();
 			sourcePath = path.join(folder,file);
 			targetPath = path.join(rootFolder,file);
+
 			stat = fs.statSync(sourcePath);
 
 			if(stat.isFile()){
@@ -105,13 +108,79 @@ EasyZip.prototype.zipFolder = function(folder, callback, options) {
 				},function(erro,result){
 					files = files.concat(result);
 				});
-
 			}
 		}
 
-		me.batchAdd(zips,function(){callback(null,me)});
+        console.log(zips);
+		//me.batchAdd(zips,function(){callback(null,me)});
 
 	}
+}
+
+EasyZip.prototype.zipFolder = function( folder, callback, options ) {
+
+    options = options || {};
+    var zips = [], rootFolder = '', file, stat, targetPath, sourcePath;
+
+    if( options.rootFolder ) {
+        rootFolder = options.rootFolder
+    } else {
+        rootFolder = path.basename(folder);
+    }
+
+    var walk = function( dir, done ) {
+        var results = [];
+        fs.readdir(dir, function( err, list ) {
+            if( err ) {
+                return done(err);
+            }
+            var targetPath, sourcePath;
+
+            var nextEntry = function() {
+                var file = list.shift();
+                if( !file ) {
+                    done(null, results);
+                    return;
+                }
+
+                sourcePath = path.join(dir, file);
+                targetPath = path.join(rootFolder, path.relative(folder, sourcePath));
+
+                fs.stat(sourcePath, function( err, stat ) {
+                    if( stat && stat.isDirectory() ) {
+                        walk(sourcePath, function( err, res ) {
+                            results.push({
+                                target: targetPath
+                            });
+
+                            results = results.concat(res);
+                            nextEntry();
+                        });
+                    } else {
+
+                        results.push({
+                            target: targetPath,
+                            source: sourcePath
+                        });
+                        nextEntry();
+                    }
+                });
+            }
+            nextEntry();
+
+        });
+    };
+
+    var me = this;
+    walk(folder, function( err, zips ) {
+        if(err) {
+            console.log(err);
+            return;
+        }
+        me.batchAdd(zips, function() {
+            callback(null, me)
+        });
+    });
 }
 
 EasyZip.prototype.writeToResponse = function(response,attachmentName){
